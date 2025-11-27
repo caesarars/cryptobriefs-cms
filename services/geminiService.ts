@@ -113,6 +113,36 @@ export const generateIdeas = async (): Promise<string> => {
   }
 }
 
+
+export const generateIdeasTrends = async (): Promise<string> => {
+  try {
+    const prompt = `
+      You are an expert SEO strategist and crypto researcher.
+      First, aggregate the most viral crypto stories from the past 24 hours across CoinDesk, Cointelegraph, The Block, Messari intel, X trending threads, Telegram alpha chats, Discord NFT servers, and other reputable aggregators.
+      Prioritize news that is exploding in social mentions, whale wallet movements, volume spikes, governance votes, exploits, regulatory actions, or funding announcements touching BTC, ETH, and emerging tokens.
+      Extract the 3–4 most promising topics based on traction + low competition long-tail keywords.
+      For each topic, craft 2–3 concise headline ideas targeting niche audiences (builders, founders, retail traders, DAO contributors, etc.).
+      Requirements:
+      - 10 total titles, numbered 1-10 (plain text, no markdown bulleting).
+      - Each title <= 14 words, highlight action or insight.
+      - Include a specific hook (data point, timeframe, region, protocol, or narrative).
+      - Mix tones: analytical, experimental, regulatory, community-focused.
+    `
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+       config: {
+        temperature: 0.8,
+      }
+    });
+
+    return response.text.replace(/"/g, '').trim();
+  } catch (error) {
+    console.error("Error generating ideas title:", error);
+    return "Failed to generate title.";
+  }
+}
+
 const compressBase64Image = async (
   base64ImageBytes: string,
   options: { maxWidth?: number; maxHeight?: number; quality?: number } = {}

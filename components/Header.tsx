@@ -12,12 +12,18 @@ const Header = () => {
             <IconLogo className="h-8 w-8 text-brand-accent" />
             <span className="text-2xl font-bold text-white tracking-tight">Crypto Briefs</span>
           </Link>
-          <nav>
+          <nav className="flex items-center space-x-3">
+            <Link
+              to="/"
+              className="bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-600 transition-colors duration-300"
+            >
+              Manual Composer
+            </Link>
             <Link 
-              to="/new" 
+              to="/one-click" 
               className="bg-brand-accent text-white font-semibold py-2 px-4 rounded-lg hover:bg-brand-accent-hover transition-colors duration-300"
             >
-              New Post
+              One-Click Blog
             </Link>
           </nav>
         </div>

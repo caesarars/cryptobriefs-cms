@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import PostList from './components/PostList';
 import PostDetail from './components/PostDetail';
 import PostForm from './components/PostForm';
+import OneClickPost from './components/OneClickPost';
 
 function App() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -50,6 +51,7 @@ function App() {
       <main className="flex-grow container mx-auto px-4 py-8">
         <Routes>
           <Route path="/" element={<PostForm onSave={handleCreatePost} />} />
+          <Route path="/one-click" element={<OneClickPost />} />
         </Routes>
       </main>
       <Footer />

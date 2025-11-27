@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle } from '../services/geminiService';
 import { Post } from '../types';
-import { generateBlogPost, generateOptimizedTitle, generateImage, generateIdeas } from '../services/geminiService';
+import { IconCopy, IconPhoto, IconSparkles } from './Icon';
 import Spinner from './Spinner';
-import { IconSparkles, IconPhoto, IconCopy } from './Icon';
 import SuccessModal from './SuccessPopUp';
-import axios from 'axios'
 
 interface PostFormProps {
   posts?: Post[];
@@ -40,6 +40,9 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
   const [error, setError] = useState<string | null>(null);
   const [imageUrlFirebase, setImageUrlFirebase] = useState('')
 
+  const BASE_URL_API = process.env.BASE_URL_API;
+
+
   useEffect(() => {
     if (id && posts) {
       const postToEdit = posts.find(p => p.id === id);
@@ -61,7 +64,8 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
     setIsGenerating(true);
     setError(null);
     try {
-      const generatedContent = await generateBlogPost(aiPrompt, tone, length, targetAudience);
+      
+      const generatedContent = await generateBlogPost(title, tone, length, targetAudience);
       setContent(generatedContent);
     } catch (err) {
       setError('Failed to generate content. Please try again.');
@@ -74,7 +78,7 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
   const handleGenerateIdaes = useCallback(async () => {
     setIsGenerateIdeas(true);
     try {
-      const responseText = await generateIdeas();
+      const responseText = await generateIdeasTrends();
       console.log(responseText);
       const ideas = [...responseText.matchAll(/\d+\.\s+(.*)/g)].map(m => m[1]);
       setListOfIdeas(ideas);
@@ -150,7 +154,7 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
 
   const uploadImage = async (imageBase64: string) => {
     console.log(imageBase64)
-    const urlUpload = "http://localhost:5005/api/upload"
+    const urlUpload = BASE_URL_API + "api/upload"
     try {
       const body = {
         base64: imageBase64
@@ -170,7 +174,7 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
         return;
     }
 
-      const urlPost = "http://localhost:5005/api/blog"
+      const urlPost = BASE_URL_API + "api/blog"
       const requestPost = {
         title: title,
         content: content,
