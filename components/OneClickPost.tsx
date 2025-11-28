@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useCallback, useState } from 'react';
-import { generateBlogPost, generateIdeasTrends, generateImage } from '../services/geminiService';
+import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle } from '../services/geminiService';
 import { IconSparkles } from './Icon';
 import Spinner from './Spinner';
 import SuccessModal from './SuccessPopUp';
@@ -64,11 +64,16 @@ const OneClickPost: React.FC = () => {
         throw new Error('Could not extract a trending idea from the AI response.');
       }
 
-      setGeneratedTitle(ideaTitle);
-      appendStatus(`Selected topic: ${ideaTitle}`);
+      appendStatus('Optimizing headline with Gemini...');
+      const optimizedFromGemini = await generateOptimizedTitle(ideaTitle);
+      const optimizedTitle = optimizedFromGemini && !optimizedFromGemini.toLowerCase().includes('error')
+        ? optimizedFromGemini
+        : ideaTitle;
+      setGeneratedTitle(optimizedTitle);
+      appendStatus(`Selected topic: ${optimizedTitle}`);
 
       appendStatus('Writing article draft with Gemini...');
-      const article = await generateBlogPost(ideaTitle, DEFAULT_TONE, DEFAULT_LENGTH, DEFAULT_AUDIENCE);
+      const article = await generateBlogPost(optimizedTitle, DEFAULT_TONE, DEFAULT_LENGTH, DEFAULT_AUDIENCE);
       setGeneratedContent(article);
 
       appendStatus('Generating hero image...');
@@ -83,9 +88,9 @@ const OneClickPost: React.FC = () => {
       appendStatus('Publishing blog post to CMS...');
       console.log('url post : ', `${BASE_URL_API}api/blog` )
       const blogResponse = await axios.post(`${BASE_URL_API}api/blog`, {
-        title: ideaTitle,
+        title: optimizedTitle,
         content: article,
-        blog: ideaTitle,
+        blog: optimizedTitle,
         tag: DEFAULT_TAGS,
         imageUrl: uploadedImageUrl
       });
