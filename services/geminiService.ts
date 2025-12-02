@@ -39,7 +39,7 @@ export const generateBlogPost = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -71,7 +71,7 @@ export const generateOptimizedTitle = async (currentTitle: string): Promise<stri
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: prompt,
        config: {
         temperature: 0.8,
@@ -99,7 +99,7 @@ export const generateIdeas = async (): Promise<string> => {
       - Mix tones: analytical, experimental, regulatory, community-focused.
     `
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: prompt,
        config: {
         temperature: 0.8,
@@ -129,7 +129,7 @@ export const generateIdeasTrends = async (): Promise<string> => {
       - Mix tones: analytical, experimental, regulatory, community-focused.
     `
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: prompt,
        config: {
         temperature: 0.8,
