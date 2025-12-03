@@ -34,7 +34,7 @@ export const generateBlogPost = async (
     Make sure is compatible with ReactMarkdown library
     And make sure it has escape string because it will be copied into Postman
     Start directly with the main content of the article.
-    AND PLEASE DO NOT WRAP it by DOUBLE QUOTES
+    AND PLEASE DO NOT WRAP it by DOUBLE QUOTES or BACKSLASH PLEASE!
     `;
 
   try {
