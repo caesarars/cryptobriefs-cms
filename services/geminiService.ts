@@ -21,7 +21,7 @@ export const generateBlogPost = async (
   const prompt = `
     You are an expert financial writer specializing in cryptocurrency and blockchain technology for a blog called "Crypto Briefs".
     
-    Your task is to write a blog post about the following topic: "${topic}".
+    Your task is to write a blog post about the following topic: that has title : "${topic}".
     
     Please adhere to the following parameters for the article:
     - **Tone**: ${tone}
