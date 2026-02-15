@@ -9,6 +9,8 @@ import PostList from './components/PostList';
 import PostDetail from './components/PostDetail';
 import PostForm from './components/PostForm';
 import OneClickPost from './components/OneClickPost';
+import AIDraftGenerator from './components/AIDraftGenerator';
+import AIBatchGenerator from './components/AIBatchGenerator';
 
 function App() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -52,6 +54,8 @@ function App() {
         <Routes>
           <Route path="/" element={<PostForm onSave={handleCreatePost} />} />
           <Route path="/one-click" element={<OneClickPost />} />
+          <Route path="/ai-draft" element={<AIDraftGenerator />} />
+          <Route path="/ai-batch" element={<AIBatchGenerator />} />
         </Routes>
       </main>
       <Footer />
