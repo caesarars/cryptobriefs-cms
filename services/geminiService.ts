@@ -1,12 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
+const IMAGE_MODEL = "imagen-4.0-generate-001";
 
 if (!API_KEY) {
   console.error("API_KEY is not set. Please set the environment variable.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+
+type GeneratedImageResult = {
+  previewImage: string;
+  base64: string;
+};
 
 export const generateBlogPost = async (
   topic: string,
@@ -14,27 +20,53 @@ export const generateBlogPost = async (
   length: string,
   targetAudience: string
 ): Promise<string> => {
-  if (!API_KEY) {
+  if (!ai) {
     return Promise.resolve("Error: API key not configured. Please contact support.");
   }
 
   const prompt = `
-    You are an expert financial writer specializing in cryptocurrency and blockchain technology for a blog called "Crypto Briefs".
-    
-    Your task is to write a blog post about the following topic: that has title : "${topic}".
-    
-    Please adhere to the following parameters for the article:
-    - **Tone**: ${tone}
-    - **Target Audience**: ${targetAudience}
-    - **Length**: ${length}
+    You are an expert crypto content strategist, SEO writer, and financial editor writing for "Crypto Briefs".
 
-    The post should be well-structured and formatted in Markdown.
-    Use markdown for structure, including headings (e.g., '## Subheading'), bulleted lists (e.g., '- List item'), and bold text (e.g., '**bold**').
-    Do not include a main title (H1, or '# Title') in the output, as the user has already provided it.
-    Make sure is compatible with ReactMarkdown library
-    And make sure it has escape string because it will be copied into Postman
-    Start directly with the main content of the article.
-    AND PLEASE DO NOT WRAP it by DOUBLE QUOTES or BACKSLASH PLEASE! and DO NOT USE "/" or "//" or "\\"
+    Create a Markdown-formatted SEO content brief followed by a structured blog article for this topic:
+    "${topic}"
+
+    Writing requirements:
+    - Tone: ${tone}
+    - Target Audience: ${targetAudience}
+    - Length Preference: ${length}
+    - Niche: cryptocurrency, blockchain, web3, digital assets, and related market or protocol analysis
+
+    Return the response in valid Markdown only.
+    Do not wrap the entire response in quotes, JSON, or code fences.
+    Keep the output easy to render in React Markdown.
+
+    The response must start with this exact Markdown pattern:
+    **Title:** {SEO-optimized title with primary keyword}
+    **Primary Keyword:** {keyword} (target density: 1-2%)
+    **Secondary Keywords:** {kw1}, {kw2}
+    **Search Intent:** {informational | transactional | navigational}
+    **Target Word Count:** {count}
+
+    ### Structure
+    1. Introduction (hook + problem statement + what they will learn)
+    2. {H2 Section 1} - {keyword angle}
+    3. {H2 Section 2} - {keyword angle}
+    4. {H2 Section 3} - {keyword angle}
+    5. {H2 Section 4 - optional} - {keyword angle}
+    6. Conclusion (summary + CTA)
+
+    After that structure block, write the full article in Markdown.
+
+    Article rules:
+    - Use the generated Title as an H1 heading.
+    - Follow the declared structure closely.
+    - Include an engaging introduction, clear H2 sections, and a conclusion with a concise CTA.
+    - Naturally use the primary keyword throughout the article.
+    - Use secondary keywords where relevant without keyword stuffing.
+    - Include short paragraphs, occasional bullet lists where useful, and practical examples or insights when appropriate.
+    - Keep claims measured and credible. Do not fabricate precise data if not certain.
+    - Avoid filler, vague hype, and repetitive phrasing.
+    - Make the article useful for search intent and readable for humans.
     `;
 
   try {
@@ -47,7 +79,7 @@ export const generateBlogPost = async (
         topK: 32,
       }
     });
-    return response.text;
+    return response.text ?? "No content generated.";
   } catch (error) {
     console.error("Error generating blog post:", error);
     return "An error occurred while generating the blog post. Please try again.";
@@ -55,7 +87,7 @@ export const generateBlogPost = async (
 };
 
 export const generateOptimizedTitle = async (currentTitle: string): Promise<string> => {
-  if (!API_KEY) {
+  if (!ai) {
     return Promise.resolve("Error: API key not configured.");
   }
 
@@ -78,7 +110,7 @@ export const generateOptimizedTitle = async (currentTitle: string): Promise<stri
       }
     });
     // Clean up response to remove potential quotes
-    return response.text.replace(/"/g, '').trim();
+    return (response.text ?? "Failed to generate title.").replace(/"/g, '').trim();
   } catch (error) {
     console.error("Error generating optimized title:", error);
     return "Failed to generate title.";
@@ -86,6 +118,9 @@ export const generateOptimizedTitle = async (currentTitle: string): Promise<stri
 };
 
 export const generateIdeas = async (): Promise<string> => {
+  if (!ai) {
+    return Promise.resolve("Error: API key not configured.");
+  }
   try {
     const prompt = `
       You are an expert SEO strategist and crypto researcher.
@@ -106,7 +141,7 @@ export const generateIdeas = async (): Promise<string> => {
       }
     });
 
-    return response.text.replace(/"/g, '').trim();
+    return (response.text ?? "Failed to generate title.").replace(/"/g, '').trim();
   } catch (error) {
     console.error("Error generating ideas title:", error);
     return "Failed to generate title.";
@@ -115,6 +150,9 @@ export const generateIdeas = async (): Promise<string> => {
 
 
 export const generateIdeasTrends = async (): Promise<string> => {
+  if (!ai) {
+    return Promise.resolve("Error: API key not configured.");
+  }
   try {
     const prompt = `
       You are an expert SEO strategist and crypto researcher.
@@ -136,7 +174,7 @@ export const generateIdeasTrends = async (): Promise<string> => {
       }
     });
 
-    return response.text.replace(/"/g, '').trim();
+    return (response.text ?? "Failed to generate title.").replace(/"/g, '').trim();
   } catch (error) {
     console.error("Error generating ideas title:", error);
     return "Failed to generate title.";
@@ -191,8 +229,8 @@ const compressBase64Image = async (
   });
 };
 
-export const generateImage = async (title: string, tone: string) => {
-  if (!API_KEY) {
+export const generateImage = async (title: string, tone: string): Promise<GeneratedImageResult | string> => {
+  if (!ai) {
     return Promise.resolve("Error: API key not configured.");
   }
 
@@ -202,7 +240,7 @@ export const generateImage = async (title: string, tone: string) => {
 
   try {
     const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-preview-06-06',
+      model: IMAGE_MODEL,
       prompt: prompt,
       config: {
         numberOfImages: 1,
@@ -211,7 +249,10 @@ export const generateImage = async (title: string, tone: string) => {
       },
     });
 
-    const base64ImageBytes = response.generatedImages[0].image.imageBytes;
+    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+    if (!base64ImageBytes) {
+      return "No image was generated. Please try again.";
+    }
     const compressedBase64 = await compressBase64Image(base64ImageBytes);
     const responseImage = {
       previewImage:`data:image/jpeg;base64,${compressedBase64}`,
@@ -220,6 +261,9 @@ export const generateImage = async (title: string, tone: string) => {
     return responseImage;
   } catch (error) {
     console.error("Error generating image:", error);
+    if (error instanceof Error && error.message.includes("NOT_FOUND")) {
+      return `Image generation model "${IMAGE_MODEL}" is unavailable for this API key/project. Verify enabled Gemini image models in Google AI Studio.`;
+    }
     return "An error occurred while generating the image. Please try again.";
   }
 };

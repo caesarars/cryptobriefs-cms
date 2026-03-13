@@ -1,22 +1,78 @@
 import axios from 'axios';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useCallback, useState } from 'react';
 import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle } from '../services/geminiService';
-import { Post } from '../types';
 import { IconCopy, IconPhoto, IconSparkles } from './Icon';
 import Spinner from './Spinner';
 import SuccessModal from './SuccessPopUp';
 
-interface PostFormProps {
-  posts?: Post[];
-  onSave: (post: Omit<Post, 'id' | 'date'> | Post) => void;
-}
+const SEO_BRIEF_PREFIXES = [
+  '**Title:**',
+  '**Primary Keyword:**',
+  '**Secondary Keywords:**',
+  '**Search Intent:**',
+  '**Target Word Count:**',
+];
 
-const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [isEditMode, setIsEditMode] = useState(false);
+const normalizeGeneratedContentForPublish = (rawContent: string, fallbackTitle: string) => {
+  const lines = rawContent.split('\n');
+  let extractedTitle = fallbackTitle.trim();
+  let index = 0;
 
+  while (index < lines.length) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith('**Title:**')) {
+      extractedTitle = line.replace('**Title:**', '').trim() || extractedTitle;
+      index += 1;
+      continue;
+    }
+
+    if (SEO_BRIEF_PREFIXES.some((prefix) => line.startsWith(prefix))) {
+      index += 1;
+      continue;
+    }
+
+    if (line === '### Structure') {
+      index += 1;
+      while (index < lines.length) {
+        const structureLine = lines[index].trim();
+        if (!structureLine || structureLine === '---') {
+          index += 1;
+          continue;
+        }
+        if (/^\d+\.\s/.test(structureLine)) {
+          index += 1;
+          continue;
+        }
+        break;
+      }
+      continue;
+    }
+
+    if (line === '---') {
+      index += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  let articleBody = lines.slice(index).join('\n').trim();
+  const escapedTitle = extractedTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  articleBody = articleBody.replace(new RegExp(`^#\\s+${escapedTitle}\\s*\\n+`, 'i'), '').trim();
+
+  return {
+    publishTitle: extractedTitle || fallbackTitle.trim(),
+    publishContent: articleBody,
+  };
+};
+
+const PostForm: React.FC = () => {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [content, setContent] = useState('');
@@ -28,7 +84,7 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
   const [length, setLength] = useState('Medium (~400-500 words)');
   const [targetAudience, setTargetAudience] = useState('General Audience');
   const [copyButtonText, setCopyButtonText] = useState('Copy as Plain Text');
-  const [listOfIdeas, setListOfIdeas] = useState([])
+  const [listOfIdeas, setListOfIdeas] = useState<string[]>([])
   const [selectedIdea, setSelectedIdea] = useState('');
   const [slug, setSlug] = useState('')
 
@@ -42,20 +98,6 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
 
   const BASE_URL_API = process.env.BASE_URL_API;
 
-
-  useEffect(() => {
-    if (id && posts) {
-      const postToEdit = posts.find(p => p.id === id);
-      if (postToEdit) {
-        setIsEditMode(true);
-        setTitle(postToEdit.title);
-        setAuthor(postToEdit.author);
-        setContent(postToEdit.content);
-        setImageUrl(postToEdit.imageUrl);
-      }
-    }
-  }, [id, posts]);
-
   const handleGenerateContent = useCallback(async () => {
     if (!aiPrompt.trim()) {
       setError('Please enter a topic to generate content.');
@@ -64,8 +106,10 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
     setIsGenerating(true);
     setError(null);
     try {
-      
-      const generatedContent = await generateBlogPost(title, tone, length, targetAudience);
+      const generatedContent = await generateBlogPost(aiPrompt, tone, length, targetAudience);
+      if (!title.trim()) {
+        setTitle(aiPrompt);
+      }
       setContent(generatedContent);
     } catch (err) {
       setError('Failed to generate content. Please try again.');
@@ -117,8 +161,12 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
     setError(null);
     try {
       const generatedImageUrl = await generateImage(title, tone);
+      if (typeof generatedImageUrl === 'string') {
+        setError(generatedImageUrl);
+        return;
+      }
       setImageUrl(generatedImageUrl.previewImage);
-      uploadImage(generatedImageUrl.base64)
+      await uploadImage(generatedImageUrl.base64)
     } catch (err) {
       setError('Failed to generate image. Please try again.');
       console.error(err);
@@ -153,51 +201,77 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
   };
 
   const uploadImage = async (imageBase64: string) => {
-    console.log(imageBase64)
+    if (!BASE_URL_API) {
+      throw new Error('BASE_URL_API is not configured.');
+    }
     const urlUpload = BASE_URL_API + "api/upload"
     try {
       const body = {
         base64: imageBase64
       }
       const response = await axios.post(urlUpload, body)
-      console.log('response : ', response)
       setImageUrlFirebase(response.data.url)
     } catch (err) {
       console.error(err)
+      throw err;
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!BASE_URL_API) {
+      setError('BASE_URL_API is not configured.');
+      return;
+    }
     if (!title || !author || !content) {
         setError('Title, Author, and Content fields are required.');
         return;
     }
 
+      const { publishTitle, publishContent } = normalizeGeneratedContentForPublish(content, title);
+      if (!publishTitle || !publishContent) {
+        setError('Generated article format is invalid. Please regenerate the content.');
+        return;
+      }
+
       const urlPost = BASE_URL_API + "api/blog"
       const requestPost = {
-        title: title,
-        content: content,
-        blog: title,
+        title: publishTitle,
+        content: publishContent,
+        blog: publishTitle,
         tag: 'AI,crypto,trading,Portfolio,Technology,Blockchain,Cryptocurrency,Crypto,bots,Bitcoin,btc',
         // firebase
         imageUrl: imageUrlFirebase
       }
       const postBlog = await axios.post(urlPost, requestPost)
-      console.log(postBlog)
       setSlug(postBlog.data.blog.slug)
-      if (postBlog.data.status !== 200) {
+      setTitle(publishTitle)
+      setContent(publishContent)
+      if (postBlog.status === 200) {
         setShowModal(true)
       } else {
-        alert('Error')
+        setError('Failed to publish the post.')
       }
+  };
+
+  const handleReset = () => {
+    setTitle('');
+    setAuthor('');
+    setContent('');
+    setImageUrl('');
+    setAiPrompt('');
+    setSelectedIdea('');
+    setError(null);
+    setImageUrlFirebase('');
+    setSlug('');
+    setShowModal(false);
   };
 
   const selectClassName = "w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-2 focus:ring-brand-accent";
 
   return (
     <div className="max-w-4xl mx-auto bg-brand-secondary p-8 rounded-xl shadow-lg">
-      <h1 className="text-3xl font-bold text-white mb-6">{isEditMode ? 'Edit Post' : 'Create New Post'}</h1>
+      <h1 className="text-3xl font-bold text-white mb-6">Manual Composer</h1>
       <SuccessModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -357,11 +431,11 @@ const PostForm: React.FC<PostFormProps> = ({ posts, onSave }) => {
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <div className="flex justify-end space-x-4">
-          <button type="button" onClick={() => navigate(-1)} className="bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-700 transition-colors">
-            Cancel
+          <button type="button" onClick={handleReset} className="bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-700 transition-colors">
+            Reset
           </button>
           <button type="submit" disabled={isGenerating || isOptimizingTitle || isGeneratingImage} className="bg-brand-accent text-white font-semibold py-2 px-6 rounded-lg hover:bg-brand-accent-hover transition-colors disabled:bg-slate-500">
-            {isEditMode ? 'Update Post' : 'm'}
+            Publish Post
           </button>
         </div>
       </form>

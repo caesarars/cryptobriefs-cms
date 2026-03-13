@@ -225,8 +225,9 @@ const AIDraftGenerator: React.FC = () => {
 
       {showModal ? (
         <SuccessModal
-          slug={slug}
+          isOpen={showModal}
           onClose={() => setShowModal(false)}
+          postUrl={slug ? `https://www.cryptobriefs.net/blog/${slug}` : ''}
         />
       ) : null}
     </div>

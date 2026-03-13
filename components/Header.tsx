@@ -1,9 +1,12 @@
 
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { IconLogo } from './Icon';
 
-const Header = () => {
+interface HeaderProps {
+  onLogout: () => void;
+}
+
+const Header = ({ onLogout }: HeaderProps) => {
   return (
     <header className="bg-brand-secondary/50 backdrop-blur-sm sticky top-0 z-50 border-b border-brand-secondary">
       <div className="container mx-auto px-4">
@@ -37,6 +40,13 @@ const Header = () => {
             >
               AI Batch
             </Link>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors duration-300"
+            >
+              Logout
+            </button>
           </nav>
         </div>
       </div>

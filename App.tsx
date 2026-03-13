@@ -1,64 +1,92 @@
 
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import { Post } from './types';
-import { INITIAL_POSTS } from './constants';
+import { useCallback, useEffect, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import PostList from './components/PostList';
-import PostDetail from './components/PostDetail';
+import LoginPage from './components/LoginPage';
 import PostForm from './components/PostForm';
 import OneClickPost from './components/OneClickPost';
 import AIDraftGenerator from './components/AIDraftGenerator';
 import AIBatchGenerator from './components/AIBatchGenerator';
 
+const SESSION_KEY = 'cryptobriefs-authenticated';
+
 function App() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const expectedUsername = process.env.APP_LOGIN_USERNAME;
+  const expectedPassword = process.env.APP_LOGIN_PASSWORD;
 
   useEffect(() => {
-    // In a real app, you'd fetch this from an API
-    setPosts(INITIAL_POSTS);
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    setIsAuthenticated(window.localStorage.getItem(SESSION_KEY) === 'true');
   }, []);
 
-  const handleCreatePost = (post: Omit<Post, 'id' | 'date'>) => {
-    const newPost: Post = {
-      ...post,
-      id: new Date().getTime().toString(),
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      // Use the generated image, or a placeholder if none was generated
-      imageUrl: post.imageUrl || `https://picsum.photos/seed/${new Date().getTime()}/1200/600`
-    };
-    setPosts(prevPosts => [newPost, ...prevPosts]);
-    navigate(`/post/${newPost.id}`);
-  };
+  const handleLogin = useCallback((username: string, password: string) => {
+    const isValid = username === expectedUsername && password === expectedPassword;
 
-  const handleUpdatePost = (updatedPost: Post) => {
-    setPosts(prevPosts =>
-      prevPosts.map(p => (p.id === updatedPost.id ? updatedPost : p))
-    );
-    navigate(`/post/${updatedPost.id}`);
-  };
-
-  const handleDeletePost = (id: string) => {
-    if(window.confirm('Are you sure you want to delete this post?')) {
-        setPosts(prevPosts => prevPosts.filter(p => p.id !== id));
-        navigate('/');
+    if (!isValid) {
+      return false;
     }
-  };
+
+    window.localStorage.setItem(SESSION_KEY, 'true');
+    setIsAuthenticated(true);
+    return true;
+  }, [expectedPassword, expectedUsername]);
+
+  const handleLogout = useCallback(() => {
+    window.localStorage.removeItem(SESSION_KEY);
+    setIsAuthenticated(false);
+  }, []);
+
+  if (!expectedUsername || !expectedPassword) {
+    return (
+      <div className="min-h-screen bg-brand-primary text-brand-text flex items-center justify-center px-4">
+        <div className="max-w-lg bg-brand-secondary border border-slate-800 rounded-2xl p-8">
+          <h1 className="text-2xl font-bold text-white">Login is not configured</h1>
+          <p className="text-brand-text-secondary mt-3">
+            Set <code>APP_LOGIN_USERNAME</code> and <code>APP_LOGIN_PASSWORD</code> in your environment before using this app.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-      <Header />
-      <main className="flex-grow container mx-auto px-4 py-8">
+      {isAuthenticated ? <Header onLogout={handleLogout} /> : null}
+      <main className={`flex-grow ${isAuthenticated ? 'container mx-auto px-4 py-8' : ''}`}>
         <Routes>
-          <Route path="/" element={<PostForm onSave={handleCreatePost} />} />
-          <Route path="/one-click" element={<OneClickPost />} />
-          <Route path="/ai-draft" element={<AIDraftGenerator />} />
-          <Route path="/ai-batch" element={<AIBatchGenerator />} />
+          <Route
+            path="/login"
+            element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />}
+          />
+          <Route
+            path="/"
+            element={isAuthenticated ? <PostForm /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/one-click"
+            element={isAuthenticated ? <OneClickPost /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/ai-draft"
+            element={isAuthenticated ? <AIDraftGenerator /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/ai-batch"
+            element={isAuthenticated ? <AIBatchGenerator /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="*"
+            element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />}
+          />
         </Routes>
       </main>
-      <Footer />
+      {isAuthenticated ? <Footer /> : null}
     </div>
   );
 }
