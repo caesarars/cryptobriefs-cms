@@ -60,11 +60,12 @@ export const generateBlogPost = async (
     Article rules:
     - Use the generated Title as an H1 heading.
     - Follow the declared structure closely.
+    - Before drafting, use Google Search to verify the latest prices, protocol updates, regulatory actions, and news tied to the topic so the article reflects current reality. Prefer recent reputable sources (CoinDesk, Cointelegraph, The Block, Messari, official project blogs, regulator statements).
     - Include an engaging introduction, clear H2 sections, and a conclusion with a concise CTA.
     - Naturally use the primary keyword throughout the article.
     - Use secondary keywords where relevant without keyword stuffing.
     - Include short paragraphs, occasional bullet lists where useful, and practical examples or insights when appropriate.
-    - Keep claims measured and credible. Do not fabricate precise data if not certain.
+    - Keep claims measured and credible. Do not fabricate precise data — only cite figures, dates, or quotes that appear in live search results.
     - Avoid filler, vague hype, and repetitive phrasing.
     - Make the article useful for search intent and readable for humans.
     `;
@@ -77,6 +78,7 @@ export const generateBlogPost = async (
         temperature: 0.7,
         topP: 1,
         topK: 32,
+        tools: [{ googleSearch: {} }],
       }
     });
     return response.text ?? "No content generated.";
@@ -124,7 +126,7 @@ export const generateIdeas = async (): Promise<string> => {
   try {
     const prompt = `
       You are an expert SEO strategist and crypto researcher.
-      First, review the latest macro trends in crypto, blockchain, and web3 from the past 90 days: institutional Bitcoin flows & ETFs, ETH restaking/L2 expansion, AI-integrated tokens, real-world asset tokenization, Web3 gaming, and regulatory shifts in US/EU/Asia.
+      Use Google Search to review the latest macro trends in crypto, blockchain, and web3 from the past 90 days: institutional Bitcoin flows & ETFs, ETH restaking/L2 expansion, AI-integrated tokens, real-world asset tokenization, Web3 gaming, and regulatory shifts in US/EU/Asia. Cite only verifiable developments surfaced in live search results — do not invent data.
       Extract the 3–4 most promising topics based on traction + low competition long-tail keywords.
       For each topic, craft 2–3 concise headline ideas targeting niche audiences (builders, founders, retail traders, DAO contributors, etc.).
       Requirements:
@@ -138,6 +140,7 @@ export const generateIdeas = async (): Promise<string> => {
       contents: prompt,
        config: {
         temperature: 0.8,
+        tools: [{ googleSearch: {} }],
       }
     });
 
@@ -156,7 +159,7 @@ export const generateIdeasTrends = async (): Promise<string> => {
   try {
     const prompt = `
       You are an expert SEO strategist and crypto researcher.
-      First, aggregate the most viral crypto stories from the past 24 hours across CoinDesk, Cointelegraph, The Block, Messari intel, X trending threads, Telegram alpha chats, Discord NFT servers, and other reputable aggregators.
+      Use Google Search to aggregate the most viral crypto stories from the past 24 hours across CoinDesk, Cointelegraph, The Block, Messari intel, X trending threads, Telegram alpha chats, Discord NFT servers, and other reputable aggregators. Ground every headline in a real story surfaced via live search — no speculation or fabricated figures.
       Prioritize news that is exploding in social mentions, whale wallet movements, volume spikes, governance votes, exploits, regulatory actions, or funding announcements touching BTC, ETH, and emerging tokens.
       Extract the 3–4 most promising topics based on traction + low competition long-tail keywords.
       For each topic, craft 2–3 concise headline ideas targeting niche audiences (builders, founders, retail traders, DAO contributors, etc.).
@@ -171,6 +174,7 @@ export const generateIdeasTrends = async (): Promise<string> => {
       contents: prompt,
        config: {
         temperature: 0.8,
+        tools: [{ googleSearch: {} }],
       }
     });
 
@@ -227,6 +231,90 @@ const compressBase64Image = async (
     image.onerror = () => resolve(base64ImageBytes);
     image.src = `data:image/jpeg;base64,${base64ImageBytes}`;
   });
+};
+
+export type SectionIllustration = {
+  heading: string;
+  base64: string;
+  previewImage: string;
+};
+
+const SECTION_SKIP_KEYWORDS = ['introduction', 'conclusion', 'summary', 'cta', 'call to action'];
+
+const parseH2Sections = (markdown: string): { heading: string; bodyPreview: string }[] => {
+  const lines = markdown.split('\n');
+  const sections: { heading: string; bodyPreview: string }[] = [];
+  let currentHeading = '';
+  let currentBody: string[] = [];
+
+  const flush = () => {
+    if (currentHeading) {
+      sections.push({
+        heading: currentHeading,
+        bodyPreview: currentBody.join(' ').replace(/\s+/g, ' ').trim().slice(0, 400),
+      });
+    }
+  };
+
+  for (const line of lines) {
+    if (/^##\s+/.test(line) && !/^###\s+/.test(line)) {
+      flush();
+      currentHeading = line.replace(/^##\s+/, '').trim();
+      currentBody = [];
+    } else if (currentHeading) {
+      currentBody.push(line);
+    }
+  }
+  flush();
+  return sections;
+};
+
+export const generateSectionIllustrations = async (
+  markdown: string,
+  options: { max?: number; skipKeywords?: string[] } = {}
+): Promise<SectionIllustration[]> => {
+  if (!ai) {
+    return [];
+  }
+  const { max = 4, skipKeywords = SECTION_SKIP_KEYWORDS } = options;
+
+  const eligible = parseH2Sections(markdown)
+    .filter((s) => !skipKeywords.some((kw) => s.heading.toLowerCase().includes(kw.toLowerCase())))
+    .slice(0, max);
+
+  if (eligible.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(
+    eligible.map(async (section) => {
+      const prompt = `Editorial illustration for a crypto / web3 / blockchain article section titled "${section.heading}". Context: ${section.bodyPreview || 'No additional context.'}. Style: modern, clean, tech magazine illustration, abstract conceptual visuals, no text overlays, no watermarks.`;
+      try {
+        const response = await ai!.models.generateImages({
+          model: IMAGE_MODEL,
+          prompt,
+          config: {
+            numberOfImages: 1,
+            outputMimeType: 'image/jpeg',
+            aspectRatio: '16:9',
+          },
+        });
+        const bytes = response.generatedImages?.[0]?.image?.imageBytes;
+        if (!bytes) return null;
+        const compressed = await compressBase64Image(bytes);
+        return {
+          heading: section.heading,
+          base64: compressed,
+          previewImage: `data:image/jpeg;base64,${compressed}`,
+        } satisfies SectionIllustration;
+      } catch (err) {
+        console.error(`Error generating illustration for section "${section.heading}":`, err);
+        return null;
+      }
+    })
+  );
+
+  return results.filter((r): r is SectionIllustration => r !== null);
 };
 
 export const generateImage = async (title: string, tone: string): Promise<GeneratedImageResult | string> => {

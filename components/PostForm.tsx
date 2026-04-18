@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useCallback, useState } from 'react';
-import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle } from '../services/geminiService';
+import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle, generateSectionIllustrations } from '../services/geminiService';
 import { IconCopy, IconPhoto, IconSparkles } from './Icon';
 import Spinner from './Spinner';
 import SuccessModal from './SuccessPopUp';
@@ -72,6 +72,35 @@ const normalizeGeneratedContentForPublish = (rawContent: string, fallbackTitle: 
   };
 };
 
+const injectSectionImages = (
+  markdown: string,
+  insertions: { heading: string; imageUrl: string }[]
+): string => {
+  const lookup = new Map(insertions.map((i) => [i.heading.trim().toLowerCase(), i.imageUrl]));
+  const lines = markdown.split('\n');
+  const out: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    out.push(line);
+    const match = line.match(/^##\s+(.+?)\s*$/);
+    if (!match) continue;
+
+    const heading = match[1].trim();
+    const url = lookup.get(heading.toLowerCase());
+    if (!url) continue;
+
+    const next = lines[i + 1] ?? '';
+    const afterNext = lines[i + 2] ?? '';
+    if (/^!\[[^\]]*\]\([^)]+\)\s*$/.test(next) || /^!\[[^\]]*\]\([^)]+\)\s*$/.test(afterNext)) {
+      continue;
+    }
+    out.push('', `![${heading}](${url})`, '');
+  }
+
+  return out.join('\n');
+};
+
 const PostForm: React.FC = () => {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
@@ -93,6 +122,8 @@ const PostForm: React.FC = () => {
   const [isOptimizingTitle, setIsOptimizingTitle] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGenerateIdeas , setIsGenerateIdeas] = useState(false)
+  const [isGeneratingSectionImages, setIsGeneratingSectionImages] = useState(false);
+  const [sectionImageStatus, setSectionImageStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imageUrlFirebase, setImageUrlFirebase] = useState('')
 
@@ -175,6 +206,42 @@ const PostForm: React.FC = () => {
     }
   }, [title, tone]);
   
+  const handleGenerateSectionIllustrations = useCallback(async () => {
+    if (!content.trim()) {
+      setError('Generate the article content first.');
+      return;
+    }
+    if (!BASE_URL_API) {
+      setError('BASE_URL_API is not configured.');
+      return;
+    }
+    setIsGeneratingSectionImages(true);
+    setSectionImageStatus('Generating illustrations...');
+    setError(null);
+    try {
+      const sections = await generateSectionIllustrations(content, { max: 4 });
+      if (sections.length === 0) {
+        setError('No eligible H2 sections found (Intro/Conclusion are skipped).');
+        return;
+      }
+      setSectionImageStatus(`Uploading ${sections.length} illustration(s)...`);
+      const uploaded = await Promise.all(
+        sections.map(async (s) => {
+          const { data } = await axios.post(`${BASE_URL_API}api/upload`, { base64: s.base64 });
+          return { heading: s.heading, imageUrl: data.url as string };
+        })
+      );
+      setContent((prev) => injectSectionImages(prev, uploaded));
+      setSectionImageStatus(`Inserted ${uploaded.length} illustration(s).`);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to generate section illustrations. Please try again.');
+      setSectionImageStatus(null);
+    } finally {
+      setIsGeneratingSectionImages(false);
+    }
+  }, [content, BASE_URL_API]);
+
   const handleCopyAsPlainText = () => {
     if (!content) return;
 
@@ -265,6 +332,7 @@ const PostForm: React.FC = () => {
     setImageUrlFirebase('');
     setSlug('');
     setShowModal(false);
+    setSectionImageStatus(null);
   };
 
   const selectClassName = "w-full bg-slate-700 border border-slate-600 rounded-md p-2 text-white focus:ring-2 focus:ring-brand-accent";
@@ -368,6 +436,19 @@ const PostForm: React.FC = () => {
                         <img src={imageUrl} alt="Generated post header" className="w-full h-full object-cover" />
                     </div>
                 )}
+
+                <button
+                    type="button"
+                    onClick={handleGenerateSectionIllustrations}
+                    disabled={isGeneratingSectionImages || !content}
+                    className="w-full flex items-center justify-center bg-purple-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-purple-700 transition-colors duration-300 disabled:bg-slate-500 disabled:cursor-not-allowed"
+                >
+                    {isGeneratingSectionImages ? <Spinner /> : <IconPhoto className="h-5 w-5 mr-2" />}
+                    Add Section Illustrations
+                </button>
+                {sectionImageStatus && (
+                    <p className="text-xs text-brand-text-secondary">{sectionImageStatus}</p>
+                )}
             </div>
         </div>
 
@@ -434,7 +515,7 @@ const PostForm: React.FC = () => {
           <button type="button" onClick={handleReset} className="bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-700 transition-colors">
             Reset
           </button>
-          <button type="submit" disabled={isGenerating || isOptimizingTitle || isGeneratingImage} className="bg-brand-accent text-white font-semibold py-2 px-6 rounded-lg hover:bg-brand-accent-hover transition-colors disabled:bg-slate-500">
+          <button type="submit" disabled={isGenerating || isOptimizingTitle || isGeneratingImage || isGeneratingSectionImages} className="bg-brand-accent text-white font-semibold py-2 px-6 rounded-lg hover:bg-brand-accent-hover transition-colors disabled:bg-slate-500">
             Publish Post
           </button>
         </div>
