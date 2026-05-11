@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.BASE_URL_API' : JSON.stringify(env.BASE_URL_API),
         'process.env.BRIEFS_ADMIN_KEY': JSON.stringify(env.BRIEFS_ADMIN_KEY),
+        'process.env.BREIFS_ADMIN_KEY': JSON.stringify(env.BREIFS_ADMIN_KEY),
         'process.env.APP_LOGIN_USERNAME': JSON.stringify(env.APP_LOGIN_USERNAME),
         'process.env.APP_LOGIN_PASSWORD': JSON.stringify(env.APP_LOGIN_PASSWORD)
       },

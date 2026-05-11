@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
 
-const ADMIN_KEY = process.env.BRIEFS_ADMIN_KEY;
+const ADMIN_KEY = process.env.BRIEFS_ADMIN_KEY || process.env.BREIFS_ADMIN_KEY;
 
 export type BlogResponse = {
   blog: {
