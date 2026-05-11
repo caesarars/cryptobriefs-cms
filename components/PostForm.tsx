@@ -1,5 +1,5 @@
-import axios from 'axios';
 import React, { useCallback, useState } from 'react';
+import { BlogResponse, postToBackend, UploadResponse } from '../services/backendService';
 import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle, generateSectionIllustrations } from '../services/geminiService';
 import { IconCopy, IconPhoto, IconSparkles } from './Icon';
 import Spinner from './Spinner';
@@ -227,7 +227,7 @@ const PostForm: React.FC = () => {
       setSectionImageStatus(`Uploading ${sections.length} illustration(s)...`);
       const uploaded = await Promise.all(
         sections.map(async (s) => {
-          const { data } = await axios.post(`${BASE_URL_API}api/upload`, { base64: s.base64 });
+          const { data } = await postToBackend<UploadResponse>(`${BASE_URL_API}api/upload`, { base64: s.base64 });
           return { heading: s.heading, imageUrl: data.url as string };
         })
       );
@@ -276,7 +276,7 @@ const PostForm: React.FC = () => {
       const body = {
         base64: imageBase64
       }
-      const response = await axios.post(urlUpload, body)
+      const response = await postToBackend<UploadResponse>(urlUpload, body)
       setImageUrlFirebase(response.data.url)
     } catch (err) {
       console.error(err)
@@ -310,7 +310,7 @@ const PostForm: React.FC = () => {
         // firebase
         imageUrl: imageUrlFirebase
       }
-      const postBlog = await axios.post(urlPost, requestPost)
+      const postBlog = await postToBackend<BlogResponse>(urlPost, requestPost)
       setSlug(postBlog.data.blog.slug)
       setTitle(publishTitle)
       setContent(publishContent)

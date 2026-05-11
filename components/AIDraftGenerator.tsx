@@ -1,5 +1,5 @@
-import axios from "axios";
 import React, { useCallback, useState } from "react";
+import { BlogResponse, postToBackend, UploadResponse } from "../services/backendService";
 import { generateBlogPost, generateImage, generateOptimizedTitle } from "../services/geminiService";
 import Spinner from "./Spinner";
 import SuccessModal from "./SuccessPopUp";
@@ -36,7 +36,7 @@ const AIDraftGenerator: React.FC = () => {
     async (imageBase64: string) => {
       if (!BASE_URL_API) throw new Error("BASE_URL_API is not configured.");
       const uploadUrl = `${BASE_URL_API}api/upload`;
-      const response = await axios.post(uploadUrl, { base64: imageBase64 });
+      const response = await postToBackend<UploadResponse>(uploadUrl, { base64: imageBase64 });
       return response.data.url as string;
     },
     [BASE_URL_API]
@@ -102,7 +102,7 @@ const AIDraftGenerator: React.FC = () => {
 
     try {
       append("Publishing blog post...");
-      const blogResponse = await axios.post(`${BASE_URL_API}api/blog`, {
+      const blogResponse = await postToBackend<BlogResponse>(`${BASE_URL_API}api/blog`, {
         title,
         content,
         blog: title,
