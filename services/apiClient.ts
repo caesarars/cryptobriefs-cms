@@ -12,9 +12,9 @@ import axios from "axios";
  * caveat as every other "env var" here — see CLAUDE.md). It stops anonymous /
  * bot calls, not a determined user. Real protection needs a server-side proxy.
  *
- * If your `requireAdmin` middleware validates a different header or scheme
- * (e.g. `x-api-key: <token>` instead of `Authorization: Bearer <token>`),
- * change ONLY the interceptor below.
+ * The backend's `requireAdmin` reads `req.headers["x-admin-key"]`, so we send
+ * the token in the `x-admin-key` header. If that ever changes, edit ONLY the
+ * interceptor below.
  */
 const ADMIN_TOKEN = process.env.APP_ADMIN_TOKEN;
 
@@ -23,7 +23,7 @@ const apiClient = axios.create();
 apiClient.interceptors.request.use((config) => {
   if (ADMIN_TOKEN) {
     config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${ADMIN_TOKEN}`;
+    config.headers["x-admin-key"] = ADMIN_TOKEN;
   }
   return config;
 });
