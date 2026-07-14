@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
 const TEXT_MODEL = "gemini-3.1-pro-preview";
-const IMAGE_MODEL = "imagen-4.0-generate-001";
+const IMAGE_MODEL = "gemini-3.1-flash-image";
 
 if (!API_KEY) {
   console.error("API_KEY is not set. Please set the environment variable.");
@@ -234,6 +234,20 @@ const compressBase64Image = async (
   });
 };
 
+// Native Gemini image models (gemini-*-image) return image bytes as inline data
+// on a content part, unlike the old Imagen `generateImages` response shape.
+const extractInlineImageBytes = (
+  response: Awaited<ReturnType<NonNullable<typeof ai>['models']['generateContent']>>
+): string | null => {
+  const parts = response.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    if (part.inlineData?.data) {
+      return part.inlineData.data;
+    }
+  }
+  return null;
+};
+
 export type SectionIllustration = {
   heading: string;
   base64: string;
@@ -291,16 +305,17 @@ export const generateSectionIllustrations = async (
     eligible.map(async (section) => {
       const prompt = `Editorial illustration for a crypto / web3 / blockchain article section titled "${section.heading}". Context: ${section.bodyPreview || 'No additional context.'}. Style: modern, clean, tech magazine illustration, abstract conceptual visuals, no text overlays, no watermarks.`;
       try {
-        const response = await ai!.models.generateImages({
+        const response = await ai!.models.generateContent({
           model: IMAGE_MODEL,
-          prompt,
+          contents: prompt,
           config: {
-            numberOfImages: 1,
-            outputMimeType: 'image/jpeg',
-            aspectRatio: '16:9',
+            responseModalities: ['TEXT', 'IMAGE'],
+            imageConfig: {
+              aspectRatio: '16:9',
+            },
           },
         });
-        const bytes = response.generatedImages?.[0]?.image?.imageBytes;
+        const bytes = extractInlineImageBytes(response);
         if (!bytes) return null;
         const compressed = await compressBase64Image(bytes);
         return {
@@ -328,17 +343,18 @@ export const generateImage = async (title: string, tone: string): Promise<Genera
   `;
 
   try {
-    const response = await ai.models.generateImages({
+    const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      prompt: prompt,
+      contents: prompt,
       config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: '16:9',
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: {
+          aspectRatio: '16:9',
+        },
       },
     });
 
-    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+    const base64ImageBytes = extractInlineImageBytes(response);
     if (!base64ImageBytes) {
       return "No image was generated. Please try again.";
     }
