@@ -17,6 +17,7 @@ Loaded by `vite.config.ts` via `loadEnv` and re-exposed as `process.env.*` at bu
 
 - `GEMINI_API_KEY` — exposed as both `process.env.API_KEY` and `process.env.GEMINI_API_KEY`
 - `BASE_URL_API` — base URL for the external publishing backend (e.g. `https://apiv2.cryptobriefs.net/`); code appends `api/blog`, `api/upload`
+- `APP_ADMIN_TOKEN` — admin credential for the publishing backend's `requireAdmin` middleware; attached as `Authorization: Bearer <token>` by `services/apiClient.ts`. Without it, `api/upload`/`api/blog` return 401.
 - `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD` — client-side login gate (see caveat below)
 
 All of these end up in the built JS bundle. This is a **client-only** app — treat all "env vars" as public.
@@ -26,7 +27,7 @@ All of these end up in the built JS bundle. This is a **client-only** app — tr
 This is a single-page Vite + React 19 + TypeScript CMS for publishing crypto articles. It is a thin UI on top of two external services:
 
 1. **Google Gemini** (`@google/genai`) — all AI text + image generation lives in `services/geminiService.ts`. Current models: `gemini-3.1-pro-preview` (`TEXT_MODEL`) for text, `gemini-3.1-flash-image` (`IMAGE_MODEL`, Nano Banana — the whole Imagen family was retired for new users) for cover/section images — both are `const`s at the top of the file, update them there when Google deprecates a model again. Note the native image models use `ai.models.generateContent` with `config.responseModalities: ['TEXT','IMAGE']` + `config.imageConfig.aspectRatio`, and return bytes as inline data (see `extractInlineImageBytes`) — **not** the old `generateImages`/`generatedImages` shape, which requires `@google/genai` ≥ 1.45. Images are compressed client-side (`compressBase64Image`, 1280×720, JPEG q=0.75) before being sent anywhere.
-2. **Crypto Briefs publishing API** (`BASE_URL_API`) — posts + images are uploaded via raw `axios.post` calls from the page components themselves (`OneClickPost.tsx`, `AIDraftGenerator.tsx`, `AIBatchGenerator.tsx`, `PostForm.tsx`). There is no shared API client; each page re-implements the upload/publish flow.
+2. **Crypto Briefs publishing API** (`BASE_URL_API`) — posts + images are uploaded from the page components (`OneClickPost.tsx`, `AIDraftGenerator.tsx`, `AIBatchGenerator.tsx`, `PostForm.tsx`). All calls go through the shared `services/apiClient.ts` axios instance, whose request interceptor attaches `Authorization: Bearer ${APP_ADMIN_TOKEN}` (the backend's `requireAdmin` gate). Each page still builds its own request URL/body; only the HTTP client + auth header are shared. If the backend changes the auth header/scheme, change only the interceptor in `apiClient.ts`.
 
 `services/firebaseService.ts` is a stub with placeholder credentials and is **not** wired into the app, despite `firebase` being in `package.json`.
 

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 import React, { useCallback, useState } from 'react';
 import { generateBlogPost, generateIdeasTrends, generateImage, generateOptimizedTitle } from '../services/geminiService';
 import { IconSparkles } from './Icon';
@@ -35,7 +35,7 @@ const OneClickPost: React.FC = () => {
       throw new Error('BASE_URL_API is not configured.');
     }
     const uploadUrl = `${BASE_URL_API}api/upload`;
-    const response = await axios.post(uploadUrl, { base64: imageBase64 });
+    const response = await apiClient.post(uploadUrl, { base64: imageBase64 });
     return response.data.url as string;
   }, [BASE_URL_API]);
 
@@ -87,7 +87,7 @@ const OneClickPost: React.FC = () => {
 
       appendStatus('Publishing blog post to CMS...');
       console.log('url post : ', `${BASE_URL_API}api/blog` )
-      const blogResponse = await axios.post(`${BASE_URL_API}api/blog`, {
+      const blogResponse = await apiClient.post(`${BASE_URL_API}api/blog`, {
         title: optimizedTitle,
         content: article,
         blog: optimizedTitle,

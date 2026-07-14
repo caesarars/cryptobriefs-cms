@@ -1,4 +1,4 @@
-import axios from "axios";
+import apiClient from "../services/apiClient";
 import React, { useCallback, useMemo, useState } from "react";
 import { generateBlogPost, generateIdeasTrends, generateOptimizedTitle } from "../services/geminiService";
 import Spinner from "./Spinner";
@@ -124,7 +124,7 @@ const AIBatchGenerator: React.FC = () => {
       if (!draft) return;
 
       try {
-        const resp = await axios.post(`${BASE_URL_API}api/blog`, {
+        const resp = await apiClient.post(`${BASE_URL_API}api/blog`, {
           title: draft.title,
           content: draft.content,
           blog: draft.title,
