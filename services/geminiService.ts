@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
+const TEXT_MODEL = "gemini-3.1-pro-preview";
 const IMAGE_MODEL = "imagen-4.0-generate-001";
 
 if (!API_KEY) {
@@ -72,7 +73,7 @@ export const generateBlogPost = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: TEXT_MODEL,
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -105,7 +106,7 @@ export const generateOptimizedTitle = async (currentTitle: string): Promise<stri
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: TEXT_MODEL,
       contents: prompt,
        config: {
         temperature: 0.8,
@@ -136,7 +137,7 @@ export const generateIdeas = async (): Promise<string> => {
       - Mix tones: analytical, experimental, regulatory, community-focused.
     `
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: TEXT_MODEL,
       contents: prompt,
        config: {
         temperature: 0.8,
@@ -170,7 +171,7 @@ export const generateIdeasTrends = async (): Promise<string> => {
       - Mix tones: analytical, experimental, regulatory, community-focused.
     `
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: TEXT_MODEL,
       contents: prompt,
        config: {
         temperature: 0.8,

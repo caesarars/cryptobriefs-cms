@@ -25,7 +25,7 @@ All of these end up in the built JS bundle. This is a **client-only** app — tr
 
 This is a single-page Vite + React 19 + TypeScript CMS for publishing crypto articles. It is a thin UI on top of two external services:
 
-1. **Google Gemini** (`@google/genai`) — all AI text + image generation lives in `services/geminiService.ts`. Current models: `gemini-2.5-pro` for text, `imagen-4.0-generate-001` for cover images. Images are compressed client-side (`compressBase64Image`, 1280×720, JPEG q=0.75) before being sent anywhere.
+1. **Google Gemini** (`@google/genai`) — all AI text + image generation lives in `services/geminiService.ts`. Current models: `gemini-3.1-pro-preview` (`TEXT_MODEL`) for text, `imagen-4.0-generate-001` (`IMAGE_MODEL`) for cover images — both are `const`s at the top of the file, update them there when Google deprecates a model again. Images are compressed client-side (`compressBase64Image`, 1280×720, JPEG q=0.75) before being sent anywhere.
 2. **Crypto Briefs publishing API** (`BASE_URL_API`) — posts + images are uploaded via raw `axios.post` calls from the page components themselves (`OneClickPost.tsx`, `AIDraftGenerator.tsx`, `AIBatchGenerator.tsx`, `PostForm.tsx`). There is no shared API client; each page re-implements the upload/publish flow.
 
 `services/firebaseService.ts` is a stub with placeholder credentials and is **not** wired into the app, despite `firebase` being in `package.json`.
